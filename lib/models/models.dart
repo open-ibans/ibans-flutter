@@ -137,7 +137,7 @@ class Iban {
   /// print(iban.format(IbanFormat.print); // "AO06 1234 1234 1234 12"
   /// ```
   String format(IbanFormat format) {
-    String iban = _country.code + _checkDigit + _basicBankAccountNumber;
+    String iban = _country.code + _checkDigit;
     int bbanSize = this.basicBankAccountNumber.length;
     String bban = "*******************************".substring(0, bbanSize);
 
@@ -150,9 +150,19 @@ class Iban {
 
     if (format == IbanFormat.print_hidden || format == IbanFormat.print) {
       var regex = RegExp(this._formats.print.pattern);
-      iban = iban.replaceAll(regex, this._formats.print.replacement);
+      iban = iban.replaceAllMapped(regex, _joinMatchGroups);
     }
     return iban;
+  }
+
+  String _joinMatchGroups(Match match, [separator = " "]) {
+    int group = 1;
+    var groups = [];
+    while (group <= match.groupCount) {
+      groups.add(match.group(group));
+      group++;
+    }
+    return groups.join(separator);
   }
 
   /// Parse Iban from string
@@ -168,7 +178,7 @@ class Iban {
   ///
   /// print(iban.country.name); // "Angola"
   /// print(iban.bank.name); // "Banco Africano de Investimento"
-  /// print(iban.bank.short_name); // "BAI"
+  /// print(iban.bank.shortName); // "BAI"
   /// ```
   static Future<Iban> parse(String iban) async {
     return await Ibans.parse(iban);
@@ -183,7 +193,7 @@ class Iban {
   ///
   /// print(iban.country.name); // "Angola"
   /// print(iban.bank.name); // "Banco Africano de Investimento"
-  /// print(iban.bank.short_name); // "BAI"
+  /// print(iban.bank.shortName); // "BAI"
   /// ```
   static Future<Iban?> tryParse(String iban) async {
     try {

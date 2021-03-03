@@ -21,6 +21,7 @@ class Ibans {
   /// print(iban.country.name) // 'Angola';
   /// ```
   static Future<Iban> parse(String ibanString) async {
+    ibanString = ibanString.replaceAll(" ", "").toUpperCase();
     var countryCode = ibanString.substring(0, 2);
     IbanSpec? spec = await _getIbanSpec(countryCode);
 
@@ -33,12 +34,14 @@ class Ibans {
     String bankCode = match.group(spec.bankCode)!;
     String checkDigit = match.group(spec.checkDigit)!;
     String accountNumber = match.group(spec.accountNumber)!;
-    String? branchCode = match.group(spec.branchCode);
-    String? accountType = match.group(spec.accountType);
-    String? accountHolderNumber = match.group(spec.accountHolderNumber);
-    String? balanceAccountNumber = match.group(spec.balanceAccountNumber);
-    String? currencyCode = match.group(spec.currencyCode);
-    String? ownerAccountNumber = match.group(spec.ownerAccountNumber);
+    String? branchCode = _getMatchGroup(match, spec.branchCode);
+    String? accountType = _getMatchGroup(match, spec.accountType);
+    String? accountHolderNumber =
+        _getMatchGroup(match, spec.accountHolderNumber);
+    String? balanceAccountNumber =
+        _getMatchGroup(match, spec.balanceAccountNumber);
+    String? currencyCode = _getMatchGroup(match, spec.currencyCode);
+    String? ownerAccountNumber = _getMatchGroup(match, spec.ownerAccountNumber);
 
     var account = Account(accountNumber, accountType, accountHolderNumber,
         currencyCode, balanceAccountNumber, ownerAccountNumber);
@@ -50,6 +53,20 @@ class Ibans {
     return iban;
   }
 
+  /// Get match group string
+  ///
+  /// Return the group string given match or group
+  static String? _getMatchGroup(Match match, int? group) {
+    if (group == null || group == 0) {
+      return null;
+    } else {
+      return match.group(group);
+    }
+  }
+
+  /// Validates an IBAN String
+  ///
+  /// Returns true if iban is valid and false otherwise
   static Future<bool> isValid(String ibanString) async {
     var countryCode = ibanString.substring(0, 2);
     IbanSpec? spec = await _getIbanSpec(countryCode);
@@ -117,14 +134,14 @@ class Ibans {
   /// Returns null if country doesn't support iban
   /// Throws [ValueException] if an invalid [countryCode] is provided
   static Future<IbanSpec?> _getIbanSpec(String countryCode) async {
-    String filepath = "assets/data/ibans/${countryCode[0]}.dat";
-    IbansSpecs ibans;
+    String filepath = "packages/ibans/assets/data/ibans/${countryCode[0]}.dat";
+    Uint8List bytes;
     try {
-      var bytes = await _getBytes(filepath);
-      ibans = IbansSpecs.fromBuffer(bytes);
+      bytes = await _getBytes(filepath);
     } catch (ResourceNotFound) {
-      return null;
+      throw ValueException("Iban spec for $countryCode was not found");
     }
+    IbansSpecs ibans = IbansSpecs.fromBuffer(bytes);
 
     bool hasKey = ibans.specs.containsKey(countryCode);
 
@@ -141,31 +158,26 @@ class Ibans {
   /// Throws [ValueException] if there is no information is available for the bank with [countryCode] and [bankCode]
   static Future<Bank> _getBank(
       String countryCode, String bankCode, String? branchCode) async {
-    String filepath =
-        "assets/data/banks/$countryCode${bankCode.substring(0, 2)}.dat";
+    String filepath = "packages/ibans/assets/data/banks/$countryCode.dat";
     late var bytes;
     try {
       bytes = await _getBytes(filepath);
     } on ResourceNotFound {
-      throw ValueException("Bank was not found");
-    }
-    var banks = BanksData.fromBuffer(bytes);
-
-    bool hasKey = banks.banks.containsKey(bankCode);
-
-    if (hasKey == false) {
-      throw ValueException("Bank was not found");
-    }
-
-    BankData? bankData = banks.banks[bankCode];
-    if (bankData == null) {
       return Bank(bankCode, branch: branchCode);
-    } else {
+    }
+
+    var banks = BanksData.fromBuffer(bytes);
+    var hasKey = banks.banks.containsKey(countryCode + bankCode);
+
+    if (hasKey) {
+      BankData bankData = banks.banks[countryCode + bankCode]!;
       return Bank(bankData.code,
           name: bankData.name,
           shortName: bankData.shortName,
           swift: bankData.swift,
           branch: branchCode);
+    } else {
+      return Bank(bankCode, branch: branchCode);
     }
   }
 
@@ -173,10 +185,12 @@ class Ibans {
   ///
   /// Returns a Uint8List
   static Future<Uint8List> _getBytes(String path) async {
-    ByteData data = await rootBundle.load(path);
-    // ignore: unnecessary_null_comparison
-    if (data == null) throw ResourceNotFound("Resource not found \"$path\"");
-
+    ByteData data;
+    try {
+      data = await rootBundle.load(path);
+    } catch (Exception) {
+      throw ResourceNotFound("Unable to load asset \"$path\"");
+    }
     Uint8List resource = data.buffer.asUint8List();
 
     return resource;
