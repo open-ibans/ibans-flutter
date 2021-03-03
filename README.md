@@ -43,7 +43,7 @@ Using the package is as simple as shown below
 
 ## Parse IBAN
 
-| Angola | Brazil | Island |
+| Angola | Brazil | Iceland |
 | --- | --- | --- |
 | ![Angola](https://raw.github.com/chulwoo-park/timelines/main/screenshots/timeline_status.gif "Angola Iban") | ![Angola](https://raw.github.com/chulwoo-park/timelines/main/screenshots/timeline_status.gif "Angola Iban") | ![Angola](https://raw.github.com/chulwoo-park/timelines/main/screenshots/timeline_status.gif "Angola Iban") |
 
